@@ -26,8 +26,17 @@ class WeatherModel(object):
 
         if is_training and config.keep_prob < 1:
             inputs = tf.nn.dropout(inputs, config.keep_prob)
+        #For testing
         self.inputs = inputs
 
+        state = self._initial_state
+        #TODO- unroll
+        (cell_output, state) = cell(inputs, state)
+        output = cell_output
+        softmax_w = tf.get_variable("softmax_w", [size, 3], dtype=tf.float32)
+        softmax_b = tf.get_variable("softmax_b", [3], dtype=tf.float32)
+        logits = tf.matmul(output, softmax_w) + softmax_b
+        self.logits=logits
 
 def main(_):
     print("Hello")
@@ -43,7 +52,9 @@ def main(_):
                 model = WeatherModel(is_training=True, config=config)
 
         sess = tf.Session()
-        print(sess.run(model.inputs,{model.inputs:input_train}))
+        init = tf.global_variables_initializer();
+        sess.run(init)
+        print(sess.run(model.logits,{model.inputs:input_train}))
 
 
 class Config(object):
