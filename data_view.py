@@ -10,7 +10,8 @@ def test1():
     observations = data['history']['observations']
     for obs in observations:
         temp = obs['tempm']
-        print(obs['date']['pretty']+" Temp:"+temp)
+        vism = obs['vism']
+        print(obs['date']['pretty']+" Temp:"+temp+" Visibility:"+vism)
 
 
 def tempDayData(date):
@@ -49,4 +50,7 @@ def loadDay(file_date):
             print("Can not read file:"+path)
             return None
 
-test2(datetime.date(2017, 6, 16), 7)
+
+if __name__ == '__main__':
+    test1()
+   # test2(datetime.date(2017, 6, 16), 7)
