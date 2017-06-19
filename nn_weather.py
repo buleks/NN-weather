@@ -50,7 +50,8 @@ class WeatherModel(object):
 
         logits = tf.reshape(logits, [config.batch_size, num_steps, 3])
         logits = logits[:,2]
-        self.logits=logits
+        loss = logits - output_data
+        self.loss=loss
 
 def main(_):
     print("Hello")
@@ -68,7 +69,7 @@ def main(_):
         sess = tf.Session()
         init = tf.global_variables_initializer();
         sess.run(init)
-        print(sess.run(model.logits,{model.input_data:input_train,model.output_data:output_train}))
+        print(sess.run(model.loss,{model.input_data:input_train,model.output_data:output_train}))
 
 
 class Config(object):
