@@ -27,8 +27,6 @@ class WeatherModel(object):
         inputs = tf.reshape(input_data,[config.batch_size,num_steps,size])
         #For testing
         self.input_data = input_data
-        self.inputs1 = inputs
-        self.inputs = inputs[:, 0, :]
 
         if is_training and config.keep_prob < 1:
             inputs = tf.nn.dropout(inputs, config.keep_prob)
@@ -36,14 +34,14 @@ class WeatherModel(object):
         outputs = []
         state = self._initial_state
         #unroll
-        # with tf.variable_scope("RNN"):
-        #     for time_step in range(num_steps):
-        #         if time_step > 0: tf.get_variable_scope().reuse_variables()
-        #         (cell_output, state) = cell(inputs[:, time_step, :], state)
-        #         outputs.append(cell_output)
-        #
-        # (cell_output, state) = cell(inputs, state)
-        # output = cell_output
+        with tf.variable_scope("RNN"):
+            for time_step in range(num_steps):
+                if time_step > 0: tf.get_variable_scope().reuse_variables()
+                (cell_output, state) = cell(inputs[:, time_step, :], state)
+                outputs.append(cell_output)
+
+        output = tf.reshape(tf.stack(axis=1, values=outputs), [-1, size])
+        self.output = output
         # softmax_w = tf.get_variable("softmax_w", [size, 3], dtype=tf.float32)
         # softmax_b = tf.get_variable("softmax_b", [3], dtype=tf.float32)
         # logits = tf.matmul(output, softmax_w) + softmax_b
@@ -63,12 +61,9 @@ def main(_):
                 model = WeatherModel(is_training=True, config=config)
 
         sess = tf.Session()
-        a,b = sess.run([model.inputs1,model.inputs], {model.input_data: input_train})
-        print(a)
-        print(b)
-        # init = tf.global_variables_initializer();
-        # sess.run(init)
-        # print(sess.run(model.logits,{model.inputs:input_train}))
+        init = tf.global_variables_initializer();
+        sess.run(init)
+        print(sess.run(model.output,{model.input_data:input_train}))
 
 
 class Config(object):
