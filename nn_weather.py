@@ -146,7 +146,7 @@ def main(_):
 
         session = tf.Session()
 
-        summary_writer = tf.summary.FileWriter("/tmp/proj", session.graph)
+        train_writer = tf.summary.FileWriter("/tmp/proj", session.graph)
 
         init = tf.global_variables_initializer();
         session.run(init)
@@ -154,9 +154,6 @@ def main(_):
         for i in range(config.max_max_epoch):
             lr_decay = config.lr_decay ** max(i + 1 - config.initial_learning_epoch, 0.0)
             model.assign_lr(session, config.learning_rate * lr_decay)
-
-
-            # print(state)
 
             fetches = {
                 "cost": model.cost,
@@ -169,40 +166,24 @@ def main(_):
             input_train, output_train = r.getRandomTrainBatch(config.num_days,config.batch_size)
             # output_train = np.array([[10, 20 ,30]])
             # input_train = np.array([[1, 2, 3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24]])
-            # print(input_train)
             feed_dict = {model.input_data: input_train, model.output_data: output_train}
 
+            if i % 100 == 0:
+                fetches["summary"]=summary
 
             vals = session.run(fetches, feed_dict)
-            #
             cost = vals["cost"]
             state = vals["final_state"]
-            #
-            # print(state)
+
+
             if i % 100 == 0:
+                train_writer.add_summary(vals["summary"],i)
                 print(cost)
 
-            # print("Epoch: %d Learning rate: %.3f" % (i + 1, session.run(model.lr)))
-
-            # if i%5 == 0:
-            #     train = run_epoch(session, model, eval_optimizer=model.train_optimizer, verbose=True, config=config,
-            #                       log=True)
-            # else:
-            #     train = run_epoch(session, model, eval_optimizer=model.train_optimizer, verbose=True, config=config,
-            #                       log=False)
-            #     print("cost:",train);
-            #
             #     summary_str = session.run(summary, feed_dict=feed_dict)
             #     summary_writer.add_summary(summary_str, step)
             #     summary_writer.flush()
-        print(cost)
-
-
-        #
-        # init = tf.global_variables_initializer();
-        # sess.run(init)
-        #print(sess.run(model.,{model.input_data:input_train,model.output_data:output_train}))
-
+        train_writer.close()
 
 
 class Config(object):
