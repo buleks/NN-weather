@@ -23,10 +23,11 @@ class WeatherModel(object):
         self._initial_state = cell.zero_state(config.batch_size, tf.float32)
 
         input_data = tf.get_variable("input_data", [config.batch_size, size*num_steps], dtype=tf.float32)
+        self.input_data = input_data
+        output_data = tf.get_variable("output_data", [config.batch_size, 3 ], dtype=tf.float32)
+        self.output_data = output_data
 
         inputs = tf.reshape(input_data,[config.batch_size,num_steps,size])
-        #For testing
-        self.input_data = input_data
 
         if is_training and config.keep_prob < 1:
             inputs = tf.nn.dropout(inputs, config.keep_prob)
@@ -48,6 +49,7 @@ class WeatherModel(object):
         logits = tf.matmul(output, softmax_w) + softmax_b
 
         logits = tf.reshape(logits, [config.batch_size, num_steps, 3])
+        logits = logits[:,2]
         self.logits=logits
 
 def main(_):
@@ -66,7 +68,7 @@ def main(_):
         sess = tf.Session()
         init = tf.global_variables_initializer();
         sess.run(init)
-        print(sess.run(model.logits,{model.input_data:input_train}))
+        print(sess.run(model.logits,{model.input_data:input_train,model.output_data:output_train}))
 
 
 class Config(object):
