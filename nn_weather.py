@@ -10,6 +10,18 @@ flags.DEFINE_string("save_path", None,"Model output directory.")
 
 FLAGS = flags.FLAGS
 
+def variable_summaries(var):
+    """Attach a lot of summaries to a Tensor (for TensorBoard visualization)."""
+    with tf.name_scope('summaries'):
+        mean = tf.reduce_mean(var)
+        tf.summary.scalar('mean', mean)
+        with tf.name_scope('stddev'):
+            stddev = tf.sqrt(tf.reduce_mean(tf.square(var - mean)))
+            tf.summary.scalar('stddev', stddev)
+            tf.summary.scalar('max', tf.reduce_max(var))
+            tf.summary.scalar('min', tf.reduce_min(var))
+            tf.summary.histogram('histogram', var)
+
 class WeatherModel(object):
 
     def __init__(self,config,is_training):
@@ -53,8 +65,13 @@ class WeatherModel(object):
         output = tf.reshape(tf.stack(axis=1, values=outputs), [-1, size])
         self.output = output
         # 3 - number of outputs
-        softmax_w = tf.get_variable("softmax_w", [size, 3], dtype=tf.float32)
-        softmax_b = tf.get_variable("softmax_b", [3], dtype=tf.float32)
+        with tf.name_scope('weights_linear'):
+            softmax_w = tf.get_variable("softmax_w", [size, 3], dtype=tf.float32)
+            variable_summaries(softmax_w)
+        with tf.name_scope('biases_linear'):
+            softmax_b = tf.get_variable("softmax_b", [3], dtype=tf.float32)
+            variable_summaries(softmax_b)
+
         logits = tf.matmul(output, softmax_w) + softmax_b
 
         logits = tf.reshape(logits, [config.batch_size, num_steps, 3])
@@ -103,30 +120,6 @@ class WeatherModel(object):
     def initial_state(self):
         return self._initial_state
 
-
-# def run_epoch(session, model, config,eval_optimizer=None, verbose=False,log=False):
-#     start_time = time.time()
-#     costs = 0.0
-#     iters = 0
-#
-#
-#
-#
-#
-#
-#
-#     # input_train = np.array([1,2,3,4,5,43,2,3,4,5,2,4,5,6,8,4,33,2,4,5,6,7,7,90])
-#     # output_train = np.array([1 ,5 ,7])
-#
-#
-#     for i, (c, h) in enumerate(model.initial_state):
-#         feed_dict[c] = state[i].c
-#         feed_dict[h] = state[i].h
-#
-#
-#
-#     return cost
-
 def main(_):
     print("Hello")
 
@@ -146,7 +139,7 @@ def main(_):
 
         session = tf.Session()
 
-        summary_writer = tf.summary.FileWriter("/tmp/proj", session.graph)
+        train_writer = tf.summary.FileWriter("/tmp/proj", session.graph)
 
         init = tf.global_variables_initializer();
         session.run(init)
@@ -154,9 +147,6 @@ def main(_):
         for i in range(config.max_max_epoch):
             lr_decay = config.lr_decay ** max(i + 1 - config.initial_learning_epoch, 0.0)
             model.assign_lr(session, config.learning_rate * lr_decay)
-
-
-            # print(state)
 
             fetches = {
                 "cost": model.cost,
@@ -169,40 +159,21 @@ def main(_):
             input_train, output_train = r.getRandomTrainBatch(config.num_days,config.batch_size)
             # output_train = np.array([[10, 20 ,30]])
             # input_train = np.array([[1, 2, 3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24]])
-            # print(input_train)
             feed_dict = {model.input_data: input_train, model.output_data: output_train}
 
+            if i % 100 == 0:
+                fetches["summary"]=summary
 
             vals = session.run(fetches, feed_dict)
-            #
             cost = vals["cost"]
             state = vals["final_state"]
-            #
-            # print(state)
+
+
             if i % 100 == 0:
+                train_writer.add_summary(vals["summary"],i)
                 print(cost)
 
-            # print("Epoch: %d Learning rate: %.3f" % (i + 1, session.run(model.lr)))
-
-            # if i%5 == 0:
-            #     train = run_epoch(session, model, eval_optimizer=model.train_optimizer, verbose=True, config=config,
-            #                       log=True)
-            # else:
-            #     train = run_epoch(session, model, eval_optimizer=model.train_optimizer, verbose=True, config=config,
-            #                       log=False)
-            #     print("cost:",train);
-            #
-            #     summary_str = session.run(summary, feed_dict=feed_dict)
-            #     summary_writer.add_summary(summary_str, step)
-            #     summary_writer.flush()
-        print(cost)
-
-
-        #
-        # init = tf.global_variables_initializer();
-        # sess.run(init)
-        #print(sess.run(model.,{model.input_data:input_train,model.output_data:output_train}))
-
+        train_writer.close()
 
 
 class Config(object):
