@@ -152,8 +152,7 @@ def main(_):
         session.run(init)
         state = session.run(model.initial_state)
         for i in range(config.max_max_epoch):
-            # lr_decay = config.lr_decay ** max(i + 1 - config.initial_learning_epoch, 0.0)
-            lr_decay = 0.1
+            lr_decay = config.lr_decay ** max(i + 1 - config.initial_learning_epoch, 0.0)
             model.assign_lr(session, config.learning_rate * lr_decay)
 
 
@@ -213,10 +212,10 @@ class Config(object):
     hidden_size = 8
     batch_size = 2
     # num_steps - number of days provided to network in one batch
-    num_days = 5
-    max_max_epoch = 2000
-    lr_decay = 0.3
-    initial_learning_epoch = 20
+    num_days = 7
+    max_max_epoch = 3000
+    lr_decay = 0.9
+    initial_learning_epoch = 100
     learning_rate = 1.0
 
 if __name__ == "__main__":
