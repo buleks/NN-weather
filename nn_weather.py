@@ -70,7 +70,7 @@ class WeatherModel(object):
         self._lr = tf.Variable(0.0, trainable=False)
         tvars = tf.trainable_variables()
 
-        grads, _ = tf.clip_by_global_norm(tf.gradients(cost, tvars),40)
+        grads, _ = tf.clip_by_global_norm(tf.gradients(cost, tvars),100)
         optimizer = tf.train.GradientDescentOptimizer(self._lr)
         self._train_optimizer = optimizer.apply_gradients(zip(grads, tvars),global_step=tf.contrib.framework.get_or_create_global_step())
         # self._train_optimizer = optimizer.minimize(cost)
@@ -124,7 +124,7 @@ def run_epoch(session, model, config,eval_optimizer=None, verbose=False):
     cost = vals["cost"]
     state = vals["final_state"]
 
-    
+    return cost
 
 def main(_):
     print("Hello")
@@ -147,8 +147,10 @@ def main(_):
                 lr_decay = config.lr_decay ** max(i + 1 - config.initial_learning_epoch, 0.0)
                 model.assign_lr(session, config.learning_rate * lr_decay)
 
-                print("Epoch: %d Learning rate: %.3f" % (i + 1, session.run(model.lr)))
+                # print("Epoch: %d Learning rate: %.3f" % (i + 1, session.run(model.lr)))
                 train = run_epoch(session, model, eval_optimizer=model.train_optimizer,verbose=True,config=config)
+                if i%100 == 0:
+                    print("cost:",train);
 
             if FLAGS.save_path:
                 print("Saving model to %s." % FLAGS.save_path)
@@ -163,17 +165,17 @@ def main(_):
 
 class Config(object):
     init_scale = 0.1
-    keep_prob = 1
-    num_layers = 1
+    keep_prob = 0.8
+    num_layers = 4
     hidden_size = 8
     batch_size = 20
     # num_steps - number of points used to predict
     # 3 means three points from one day
     # todo - this information must be moved to input data
     num_steps = 3
-    max_max_epoch = 100
+    max_max_epoch = 1000
     lr_decay = 0.5
-    initial_learning_epoch = 90
+    initial_learning_epoch = 900
     learning_rate = 1.0
 
 if __name__ == "__main__":
