@@ -50,8 +50,10 @@ class WeatherModel(object):
 
         logits = tf.reshape(logits, [config.batch_size, num_steps, 3])
         logits = logits[:,2]
-        loss = logits - output_data
-        self.loss=loss
+        loss = tf.reduce_sum(tf.square(logits - output_data))
+
+
+        self._final_state = state
 
 def main(_):
     print("Hello")
