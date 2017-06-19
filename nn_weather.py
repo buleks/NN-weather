@@ -138,12 +138,13 @@ def main(_):
         summary = tf.summary.merge_all()
 
         session = tf.Session()
+        saver = tf.train.Saver()
 
         train_writer = tf.summary.FileWriter("/tmp/proj", session.graph)
 
         init = tf.global_variables_initializer();
         session.run(init)
-        state = session.run(model.initial_state)
+        # state = session.run(model.initial_state)
         for i in range(config.max_max_epoch):
             lr_decay = config.lr_decay ** max(i + 1 - config.initial_learning_epoch, 0.0)
             model.assign_lr(session, config.learning_rate * lr_decay)
@@ -174,6 +175,9 @@ def main(_):
                 print(cost)
 
         train_writer.close()
+        if FLAGS.save_path:
+            print("Saving model to %s." % FLAGS.save_path)
+            saver.save(session, FLAGS.save_path, global_step=tf.contrib.framework.get_or_create_global_step())
 
 
 class Config(object):
