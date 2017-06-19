@@ -42,10 +42,13 @@ class WeatherModel(object):
 
         output = tf.reshape(tf.stack(axis=1, values=outputs), [-1, size])
         self.output = output
-        # softmax_w = tf.get_variable("softmax_w", [size, 3], dtype=tf.float32)
-        # softmax_b = tf.get_variable("softmax_b", [3], dtype=tf.float32)
-        # logits = tf.matmul(output, softmax_w) + softmax_b
-        # self.logits=logits
+        # 3 - number of outputs
+        softmax_w = tf.get_variable("softmax_w", [size, 3], dtype=tf.float32)
+        softmax_b = tf.get_variable("softmax_b", [3], dtype=tf.float32)
+        logits = tf.matmul(output, softmax_w) + softmax_b
+
+        logits = tf.reshape(logits, [config.batch_size, num_steps, 3])
+        self.logits=logits
 
 def main(_):
     print("Hello")
@@ -63,7 +66,7 @@ def main(_):
         sess = tf.Session()
         init = tf.global_variables_initializer();
         sess.run(init)
-        print(sess.run(model.output,{model.input_data:input_train}))
+        print(sess.run(model.logits,{model.input_data:input_train}))
 
 
 class Config(object):
