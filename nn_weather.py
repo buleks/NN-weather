@@ -166,9 +166,10 @@ def main(_):
 
             fetches["eval_optimizer"] = model.train_optimizer
 
-            input_train, output_train = r.getBatchDays(datetime.date(2015, 6, 7),config.batch_size)
-            output_train = np.array([[10, 20 ,30]])
-            input_train = np.array([[1, 2, 3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24]])
+            # input_train, output_train = r.getBatchDays(datetime.date(2015, 6, 7),config.batch_size)
+            input_train, output_train = r.getRandomTrainBatch(config.batch_size)
+            # output_train = np.array([[10, 20 ,30]])
+            # input_train = np.array([[1, 2, 3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24]])
             # print(input_train)
             feed_dict = {model.input_data: input_train, model.output_data: output_train}
 

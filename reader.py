@@ -77,20 +77,30 @@ def getOneDay(date):
     output = [input1[0], input12[0], input19[0]]
     return [input_data, output]
 
-def getBatchDays(date,previousdays):
-    result_input = np.zeros([previousdays, 3*PARAMS_COUNT])
-    result_output = np.zeros([previousdays, 3])
-    iter_day = date-datetime.timedelta(days=previousdays)
+def getBatchDays(date,previousdays,batchsize):
+    result_input = np.zeros([batchsize, 3*PARAMS_COUNT*previousdays])
+    result_output = np.zeros([batchsize, 3])
+    iter_batch = date-datetime.timedelta(days=batchsize)
     row =0
-    while iter_day < date:
-        result_input[row], result_output[row] = getOneDay(iter_day)
+    #Loop for batch
+    while iter_batch < date:
+        #Loop for previous days
+        iter_day = iter_batch-datetime.timedelta(days=previousdays)
+        batch_data = []
+        while iter_day < iter_batch:
+            a,b = getOneDay(iter_day)
+            batch_data.append(a)
+            iter_day = iter_day + datetime.timedelta(days=1)
+
+        result_input[row] = np.array(batch_data).flatten()
+        _, result_output[row] = getOneDay(iter_batch)
         row += 1
-        iter_day = iter_day + datetime.timedelta(days=1)
+        iter_batch = iter_batch + datetime.timedelta(days=1)
     return (result_input, result_output)
 
-def getRandomTrainBatch(batch_size):
+def getRandomTrainBatch(previousdays,batch_size):
     rand = random.SystemRandom()
-    start = FIRST_DATA + datetime.timedelta(days=batch_size)
+    start = FIRST_DATA + datetime.timedelta(days=batch_size+previousdays)
     end = TODAY - datetime.timedelta(days=1)
     while True:
         try:
@@ -105,11 +115,11 @@ def getRandomTrainBatch(batch_size):
             break
         except:
             continue
-    return getBatchDays(date,batch_size)
+    return getBatchDays(date,previousdays,batch_size)
 if __name__ == '__main__':
     #input_data, output = getOneDay(datetime.date(2014, 6, 7))
-    #input_data, output = getBatchDays(datetime.date(2015, 6, 7),20)
-    input_data, output = getRandomTrainBatch(2)
+    # input_data, output = getBatchDays(datetime.date(2015, 6, 7), previousdays=3, batchsize=2)
+    input_data, output = getRandomTrainBatch(2,2)
     print("Input data:")
     print(input_data)
     print("Output data:")
