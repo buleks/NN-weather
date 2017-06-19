@@ -12,7 +12,7 @@ TODAY = datetime.date.today()
 def checkData(date):
     file = t.filename(date)
     if not pathlib.Path("data/" + file+".json").is_file():
-        raise Exception('not data')
+        raise Exception('no data')
 
 
 
@@ -22,7 +22,11 @@ def getObservationData(obs):
     data[1] = (float(obs['dewptm']))
     data[2] = (float(obs['vism']))
     data[3] = (float(obs['pressurem']))
-    data[4] = (float(obs['hum']))
+    try:
+        data[4] = (float(obs['hum']))
+    except:
+        #Sometimes input data have humidity as N/A then set it to zero
+        data[4]= 0.0
     data[5] = (float(obs['fog']))
     data[6] = (float(obs['snow']))
     data[7] = (float(obs['thunder']))
@@ -30,7 +34,10 @@ def getObservationData(obs):
 
 def parseData(date):
     data = d.loadDay(date)
-    observations = data['history']['observations']
+    try:
+        observations = data['history']['observations']
+    except:
+        print("Problem: data['history']['observations']:", d.dateString(date))
     for obs in observations:
         hour = float(obs['date']['hour'])
         if hour == 1:
@@ -91,7 +98,10 @@ def getRandomTrainBatch(batch_size):
             month = int(random.SystemRandom.uniform(rand, 1, 12))
             year = int(random.SystemRandom.uniform(rand,start.year, end.year+1))
             date = datetime.date(year, month, day)
+            if(date < start):
+                continue
             checkData(date)
+
             break
         except:
             continue

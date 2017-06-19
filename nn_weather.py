@@ -1,5 +1,12 @@
 import tensorflow as tf
 import reader as r
+import time
+
+flags = tf.flags
+
+flags.DEFINE_string("save_path", None,"Model output directory.")
+
+FLAGS = flags.FLAGS
 
 class WeatherModel(object):
 
@@ -22,9 +29,9 @@ class WeatherModel(object):
         #Return zero-filled state tensor, with data type
         self._initial_state = cell.zero_state(config.batch_size, tf.float32)
 
-        input_data = tf.get_variable("input_data", [config.batch_size, size*num_steps], dtype=tf.float32)
+        input_data = tf.placeholder(tf.float32, [config.batch_size, size*num_steps])
         self.input_data = input_data
-        output_data = tf.get_variable("output_data", [config.batch_size, 3 ], dtype=tf.float32)
+        output_data = tf.placeholder(tf.float32, [config.batch_size, 3 ])
         self.output_data = output_data
 
         inputs = tf.reshape(input_data,[config.batch_size,num_steps,size])
@@ -50,16 +57,80 @@ class WeatherModel(object):
 
         logits = tf.reshape(logits, [config.batch_size, num_steps, 3])
         logits = logits[:,2]
-        loss = tf.reduce_sum(tf.square(logits - output_data))
+
+        cost = tf.reduce_sum(tf.square(logits - output_data))
 
 
+        self._cost = cost
         self._final_state = state
+
+        if not is_training:
+            return
+
+        self._lr = tf.Variable(0.0, trainable=False)
+        tvars = tf.trainable_variables()
+
+        grads, _ = tf.clip_by_global_norm(tf.gradients(cost, tvars),40)
+        optimizer = tf.train.GradientDescentOptimizer(self._lr)
+        self._train_optimizer = optimizer.apply_gradients(zip(grads, tvars),global_step=tf.contrib.framework.get_or_create_global_step())
+        # self._train_optimizer = optimizer.minimize(cost)
+
+        self._new_lr = tf.placeholder(tf.float32, shape=[], name="new_learning_rate")
+        self._lr_update = tf.assign(self._lr, self._new_lr)
+
+    def assign_lr(self, session, lr_value):
+        session.run(self._lr_update, feed_dict={self._new_lr: lr_value})
+
+    @property
+    def cost(self):
+        return self._cost
+
+    @property
+    def lr(self):
+        return self._lr
+
+    @property
+    def train_optimizer(self):
+        return self._train_optimizer
+
+    @property
+    def final_state(self):
+        return self._final_state
+
+    @property
+    def initial_state(self):
+        return self._initial_state
+
+
+def run_epoch(session, model, config,eval_optimizer=None, verbose=False):
+    start_time = time.time()
+    costs = 0.0
+    iters = 0
+
+    state = session.run(model.initial_state)
+
+    fetches = {
+        "cost": model.cost,
+        "final_state": model.final_state,
+    }
+
+    if eval_optimizer is not None:
+        fetches["eval_optimizer"] = eval_optimizer
+
+    input_train, output_train = r.getRandomTrainBatch(config.batch_size)
+    feed_dict = {model.input_data:input_train,model.output_data:output_train}
+    vals = session.run(fetches, feed_dict)
+
+    cost = vals["cost"]
+    state = vals["final_state"]
+
+    
 
 def main(_):
     print("Hello")
 
     config = Config()
-    input_train,output_train = r.getRandomTrainBatch(config.batch_size)
+
 
 
     with tf.Graph().as_default():
@@ -67,11 +138,27 @@ def main(_):
         with tf.name_scope("Train"):
             with tf.variable_scope("Model", reuse=None, initializer=initializer):
                 model = WeatherModel(is_training=True, config=config)
+                tf.summary.scalar("Training cost", model.cost)
+                tf.summary.scalar("Learning Rate", model.lr)
 
-        sess = tf.Session()
-        init = tf.global_variables_initializer();
-        sess.run(init)
-        print(sess.run(model.loss,{model.input_data:input_train,model.output_data:output_train}))
+        sv = tf.train.Supervisor(logdir=FLAGS.save_path)
+        with sv.managed_session() as session:
+            for i in range(config.max_max_epoch):
+                lr_decay = config.lr_decay ** max(i + 1 - config.initial_learning_epoch, 0.0)
+                model.assign_lr(session, config.learning_rate * lr_decay)
+
+                print("Epoch: %d Learning rate: %.3f" % (i + 1, session.run(model.lr)))
+                train = run_epoch(session, model, eval_optimizer=model.train_optimizer,verbose=True,config=config)
+
+            if FLAGS.save_path:
+                print("Saving model to %s." % FLAGS.save_path)
+                sv.saver.save(session, FLAGS.save_path, global_step=sv.global_step)
+
+        # sess = tf.Session()
+        # init = tf.global_variables_initializer();
+        # sess.run(init)
+        #print(sess.run(model.,{model.input_data:input_train,model.output_data:output_train}))
+
 
 
 class Config(object):
@@ -79,11 +166,15 @@ class Config(object):
     keep_prob = 1
     num_layers = 1
     hidden_size = 8
-    batch_size = 2
+    batch_size = 20
     # num_steps - number of points used to predict
     # 3 means three points from one day
     # todo - this information must be moved to input data
     num_steps = 3
+    max_max_epoch = 100
+    lr_decay = 0.5
+    initial_learning_epoch = 90
+    learning_rate = 1.0
 
 if __name__ == "__main__":
     tf.app.run()
