@@ -14,7 +14,7 @@ class WeatherModel(object):
 
     def __init__(self,config,is_training):
         size = config.hidden_size
-        num_steps = config.num_steps
+        num_steps = config.num_days*3
 
         def lstm_cell():
             return tf.contrib.rnn.BasicLSTMCell(size, forget_bias=0.0, state_is_tuple=True)
@@ -167,7 +167,7 @@ def main(_):
             fetches["eval_optimizer"] = model.train_optimizer
 
             # input_train, output_train = r.getBatchDays(datetime.date(2015, 6, 7),config.batch_size)
-            input_train, output_train = r.getRandomTrainBatch(config.batch_size)
+            input_train, output_train = r.getRandomTrainBatch(config.num_days,config.batch_size)
             # output_train = np.array([[10, 20 ,30]])
             # input_train = np.array([[1, 2, 3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24]])
             # print(input_train)
@@ -180,7 +180,8 @@ def main(_):
             state = vals["final_state"]
             #
             # print(state)
-            print(cost)
+            if i % 100 == 0:
+                print(cost)
 
             # print("Epoch: %d Learning rate: %.3f" % (i + 1, session.run(model.lr)))
 
@@ -195,7 +196,7 @@ def main(_):
             #     summary_str = session.run(summary, feed_dict=feed_dict)
             #     summary_writer.add_summary(summary_str, step)
             #     summary_writer.flush()
-
+        print(cost)
 
 
         #
@@ -207,16 +208,14 @@ def main(_):
 
 class Config(object):
     init_scale = 0.1
-    keep_prob = 1
-    num_layers = 3
+    keep_prob = 0.7
+    num_layers = 2
     hidden_size = 8
-    batch_size = 1
-    # num_steps - number of points used to predict
-    # 3 means three points from one day
-    # todo - this information must be moved to input data
-    num_steps = 3
-    max_max_epoch = 20
-    lr_decay = 0.5
+    batch_size = 2
+    # num_steps - number of days provided to network in one batch
+    num_days = 5
+    max_max_epoch = 2000
+    lr_decay = 0.3
     initial_learning_epoch = 20
     learning_rate = 1.0
 
