@@ -1,6 +1,8 @@
 import tensorflow as tf
 import reader as r
 import time
+import numpy as np
+import datetime
 
 flags = tf.flags
 
@@ -102,29 +104,28 @@ class WeatherModel(object):
         return self._initial_state
 
 
-def run_epoch(session, model, config,eval_optimizer=None, verbose=False):
-    start_time = time.time()
-    costs = 0.0
-    iters = 0
-
-    state = session.run(model.initial_state)
-
-    fetches = {
-        "cost": model.cost,
-        "final_state": model.final_state,
-    }
-
-    if eval_optimizer is not None:
-        fetches["eval_optimizer"] = eval_optimizer
-
-    input_train, output_train = r.getRandomTrainBatch(config.batch_size)
-    feed_dict = {model.input_data:input_train,model.output_data:output_train}
-    vals = session.run(fetches, feed_dict)
-
-    cost = vals["cost"]
-    state = vals["final_state"]
-
-    return cost
+# def run_epoch(session, model, config,eval_optimizer=None, verbose=False,log=False):
+#     start_time = time.time()
+#     costs = 0.0
+#     iters = 0
+#
+#
+#
+#
+#
+#
+#
+#     # input_train = np.array([1,2,3,4,5,43,2,3,4,5,2,4,5,6,8,4,33,2,4,5,6,7,7,90])
+#     # output_train = np.array([1 ,5 ,7])
+#
+#
+#     for i, (c, h) in enumerate(model.initial_state):
+#         feed_dict[c] = state[i].c
+#         feed_dict[h] = state[i].h
+#
+#
+#
+#     return cost
 
 def main(_):
     print("Hello")
@@ -134,29 +135,69 @@ def main(_):
 
 
     with tf.Graph().as_default():
-        initializer = tf.random_uniform_initializer(-0.1,0.1)
+        initializer = tf.random_uniform_initializer(-config.init_scale,config.init_scale)
         with tf.name_scope("Train"):
             with tf.variable_scope("Model", reuse=None, initializer=initializer):
                 model = WeatherModel(is_training=True, config=config)
                 tf.summary.scalar("Training cost", model.cost)
                 tf.summary.scalar("Learning Rate", model.lr)
 
-        sv = tf.train.Supervisor(logdir=FLAGS.save_path)
-        with sv.managed_session() as session:
-            for i in range(config.max_max_epoch):
-                lr_decay = config.lr_decay ** max(i + 1 - config.initial_learning_epoch, 0.0)
-                model.assign_lr(session, config.learning_rate * lr_decay)
+        summary = tf.summary.merge_all()
 
-                # print("Epoch: %d Learning rate: %.3f" % (i + 1, session.run(model.lr)))
-                train = run_epoch(session, model, eval_optimizer=model.train_optimizer,verbose=True,config=config)
-                if i%100 == 0:
-                    print("cost:",train);
+        session = tf.Session()
 
-            if FLAGS.save_path:
-                print("Saving model to %s." % FLAGS.save_path)
-                sv.saver.save(session, FLAGS.save_path, global_step=sv.global_step)
+        summary_writer = tf.summary.FileWriter("/tmp/proj", session.graph)
 
-        # sess = tf.Session()
+        init = tf.global_variables_initializer();
+        session.run(init)
+        state = session.run(model.initial_state)
+        for i in range(config.max_max_epoch):
+            # lr_decay = config.lr_decay ** max(i + 1 - config.initial_learning_epoch, 0.0)
+            lr_decay = 0.1
+            model.assign_lr(session, config.learning_rate * lr_decay)
+
+
+            # print(state)
+
+            fetches = {
+                "cost": model.cost,
+                "final_state": model.final_state,
+            }
+
+            fetches["eval_optimizer"] = model.train_optimizer
+
+            input_train, output_train = r.getBatchDays(datetime.date(2015, 6, 7),config.batch_size)
+            output_train = np.array([[10, 20 ,30]])
+            input_train = np.array([[1, 2, 3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24]])
+            # print(input_train)
+            feed_dict = {model.input_data: input_train, model.output_data: output_train}
+
+
+            vals = session.run(fetches, feed_dict)
+            #
+            cost = vals["cost"]
+            state = vals["final_state"]
+            #
+            # print(state)
+            print(cost)
+
+            # print("Epoch: %d Learning rate: %.3f" % (i + 1, session.run(model.lr)))
+
+            # if i%5 == 0:
+            #     train = run_epoch(session, model, eval_optimizer=model.train_optimizer, verbose=True, config=config,
+            #                       log=True)
+            # else:
+            #     train = run_epoch(session, model, eval_optimizer=model.train_optimizer, verbose=True, config=config,
+            #                       log=False)
+            #     print("cost:",train);
+            #
+            #     summary_str = session.run(summary, feed_dict=feed_dict)
+            #     summary_writer.add_summary(summary_str, step)
+            #     summary_writer.flush()
+
+
+
+        #
         # init = tf.global_variables_initializer();
         # sess.run(init)
         #print(sess.run(model.,{model.input_data:input_train,model.output_data:output_train}))
@@ -165,17 +206,17 @@ def main(_):
 
 class Config(object):
     init_scale = 0.1
-    keep_prob = 0.8
-    num_layers = 4
+    keep_prob = 1
+    num_layers = 3
     hidden_size = 8
-    batch_size = 20
+    batch_size = 1
     # num_steps - number of points used to predict
     # 3 means three points from one day
     # todo - this information must be moved to input data
     num_steps = 3
-    max_max_epoch = 1000
+    max_max_epoch = 20
     lr_decay = 0.5
-    initial_learning_epoch = 900
+    initial_learning_epoch = 20
     learning_rate = 1.0
 
 if __name__ == "__main__":
