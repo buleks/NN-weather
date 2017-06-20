@@ -174,6 +174,8 @@ def main(_):
                     lr_decay = config.lr_decay ** max(i + 1 - config.initial_learning_epoch, 0.0)
                     model.assign_lr(session, config.learning_rate * lr_decay)
 
+                    state = session.run(model.initial_state)
+
                     fetches = {
                         "cost": model.cost,
                         "final_state": model.final_state,
@@ -207,20 +209,15 @@ def main(_):
             train_writer.close()
 
 
-            print('Validation')
-            config.batch_size = 1
-            input_valid, output_valid = r.getBatchDays(datetime.date(2017, 6, 18), config.num_days, config.batch_size)
+            print('Validation...')
+            input_valid, output_valid = r.getBatchDays(datetime.date(2017, 6, 15), config.num_days, config.batch_size)
             feed_dict = {model.input_data: input_valid, model.output_data: output_valid}
 
+            [valid_cost, valid_accuracy, valid_logits] = session.run([model.cost, model.accuracy, model.logits], feed_dict)
 
-            print("Testing Output data, cost, accuracy, logits:", output_valid, session.run([model.cost, model.accuracy, model.logits] , feed_dict))
-
-
-
-
-
-
-
+            print('Validation completed\nCost [MSE]', valid_cost, '\nAccuracy [ME]', valid_accuracy)
+            print('Expected temeratures: ', output_valid)
+            print('Calculated temperatures: ', valid_logits)
 
 
 
@@ -230,10 +227,10 @@ class Config(object):
     keep_prob = 0.7
     num_layers = 2
     hidden_size = 8
-    batch_size = 1
+    batch_size = 2
     # num_steps - number of days provided to network in one batch
     num_days = 7
-    max_max_epoch = 300
+    max_max_epoch = 2000
     lr_decay = 0.9
     initial_learning_epoch = 100
     learning_rate = 1.0
