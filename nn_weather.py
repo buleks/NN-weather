@@ -41,8 +41,11 @@ class WeatherModel(object):
 
         cell = tf.contrib.rnn.MultiRNNCell([attn_cell() for _ in range(config.num_layers)], state_is_tuple=True)
 
+        input_batchsize = tf.placeholder(tf.int32,[1])
+        self.input_batchsize = input_batchsize
+
         #Return zero-filled state tensor, with data type
-        self._initial_state = cell.zero_state(config.batch_size, tf.float32)
+        self._initial_state = cell.zero_state(input_batchsize[0], tf.float32)
 
         input_data = tf.placeholder(tf.float32, [None  , size*num_steps])
         self.input_data = input_data
@@ -174,7 +177,8 @@ def main(_):
                     lr_decay = config.lr_decay ** max(i + 1 - config.initial_learning_epoch, 0.0)
                     model.assign_lr(session, config.learning_rate * lr_decay)
 
-                    state = session.run(model.initial_state)
+                    batch_size = np.array([config.batch_size], dtype=np.float32)
+                    state = session.run(model.initial_state,{model.input_batchsize : batch_size})
 
                     fetches = {
                         "cost": model.cost,
@@ -187,7 +191,9 @@ def main(_):
                     input_train, output_train = r.getRandomTrainBatch(config.num_days,config.batch_size)
                     # output_train = np.array([[10, 20 ,30]])
                     # input_train = np.array([[1, 2, 3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24]])
-                    feed_dict = {model.input_data: input_train, model.output_data: output_train}
+                    # batch_size = np.array([2], dtype=np.int32)
+                    # batch_size = np.array([2], dtype=np.float32)
+                    feed_dict = {model.input_data: input_train, model.output_data: output_train,model.input_batchsize : batch_size}
 
                     if i % 100 == 0:
                         fetches["summary"]=summary
@@ -211,13 +217,13 @@ def main(_):
 
             print('Validation...')
             input_valid, output_valid = r.getBatchDays(datetime.date(2017, 6, 15), config.num_days, config.batch_size)
-            feed_dict = {model.input_data: input_valid, model.output_data: output_valid}
+            feed_dict = {model.input_data: input_valid, model.output_data: output_valid,model.input_batchsize : 1}
 
             [valid_cost, valid_accuracy, valid_logits] = session.run([model.cost, model.accuracy, model.logits], feed_dict)
 
-            print('Validation completed\nCost [MSE]', valid_cost, '\nAccuracy [ME]', valid_accuracy)
-            print('Expected temeratures: ', output_valid)
-            print('Calculated temperatures: ', valid_logits)
+            # print('Validation completed\nCost [MSE]', valid_cost, '\nAccuracy [ME]', valid_accuracy)
+            # print('Expected temeratures: ', output_valid)
+            # print('Calculated temperatures: ', valid_logits)
 
 
 
@@ -230,7 +236,7 @@ class Config(object):
     batch_size = 2
     # num_steps - number of days provided to network in one batch
     num_days = 7
-    max_max_epoch = 2000
+    max_max_epoch = 100
     lr_decay = 0.9
     initial_learning_epoch = 100
     learning_rate = 1.0
