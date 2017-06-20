@@ -3,6 +3,7 @@ import reader as r
 import time
 import numpy as np
 import datetime
+import itertools
 
 flags = tf.flags
 
@@ -216,14 +217,20 @@ def main(_):
 
 
             print('Validation...')
-            input_valid, output_valid = r.getBatchDays(datetime.date(2017, 6, 15), config.num_days, config.batch_size)
-            feed_dict = {model.input_data: input_valid, model.output_data: output_valid,model.input_batchsize : 1}
+            batch_size = np.array([1], dtype=np.float32)
+            session.run(model.initial_state,{model.input_batchsize : batch_size})
+            input_valid, output_valid = r.getBatchDays(datetime.date(2017, 6, 15), previousdays=config.num_days, batchsize=1)
+            feed_dict = {model.input_data: input_valid, model.output_data: output_valid,model.input_batchsize : batch_size}
 
             [valid_cost, valid_accuracy, valid_logits] = session.run([model.cost, model.accuracy, model.logits], feed_dict)
 
-            # print('Validation completed\nCost [MSE]', valid_cost, '\nAccuracy [ME]', valid_accuracy)
-            # print('Expected temeratures: ', output_valid)
-            # print('Calculated temperatures: ', valid_logits)
+            print('Validation completed')
+            print('Cost [MSE]', valid_cost)
+            print('Accuracy [ME]', valid_accuracy)
+            print('Hour | Expected temp | Calculated temp')
+
+            for x, y, z in zip(itertools.cycle([1,12,19]), output_valid.flatten(), valid_logits.flatten()):
+                print(x, '\t\t|\t\t', y, '\t\t|\t\t', z)
 
 
 
@@ -233,10 +240,10 @@ class Config(object):
     keep_prob = 0.7
     num_layers = 2
     hidden_size = 8
-    batch_size = 2
+    batch_size = 3
     # num_steps - number of days provided to network in one batch
-    num_days = 7
-    max_max_epoch = 100
+    num_days = 3
+    max_max_epoch = 1000
     lr_decay = 0.9
     initial_learning_epoch = 100
     learning_rate = 1.0
