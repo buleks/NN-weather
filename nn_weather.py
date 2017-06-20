@@ -44,12 +44,12 @@ class WeatherModel(object):
         #Return zero-filled state tensor, with data type
         self._initial_state = cell.zero_state(config.batch_size, tf.float32)
 
-        input_data = tf.placeholder(tf.float32, [config.batch_size, size*num_steps])
+        input_data = tf.placeholder(tf.float32, [None  , size*num_steps])
         self.input_data = input_data
-        output_data = tf.placeholder(tf.float32, [config.batch_size, 3 ])
+        output_data = tf.placeholder(tf.float32, [None, 3 ])
         self.output_data = output_data
 
-        inputs = tf.reshape(input_data,[config.batch_size,num_steps,size])
+        inputs = tf.reshape(input_data,[-1,num_steps,size])
 
         if is_training and config.keep_prob < 1:
             inputs = tf.nn.dropout(inputs, config.keep_prob)
@@ -75,7 +75,7 @@ class WeatherModel(object):
 
         logits = tf.matmul(output, softmax_w) + softmax_b
 
-        logits = tf.reshape(logits, [config.batch_size, num_steps, 3])
+        logits = tf.reshape(logits, [-1, num_steps, 3])
         logits = logits[:,2]
 
         cost = tf.reduce_sum(tf.square(logits - output_data))
@@ -181,7 +181,7 @@ def main(_):
 
                     fetches["eval_optimizer"] = model.train_optimizer
 
-                    # input_train, output_train = r.getBatchDays(datetime.date(2015, 6, 7),config.batch_size)
+                    # input_train, output_train = r.getBatchDays(datetime.date(2017, 5, 25), config.num_days, config.batch_size)
                     input_train, output_train = r.getRandomTrainBatch(config.num_days,config.batch_size)
                     # output_train = np.array([[10, 20 ,30]])
                     # input_train = np.array([[1, 2, 3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24]])
@@ -213,7 +213,7 @@ def main(_):
             feed_dict = {model.input_data: input_valid, model.output_data: output_valid}
 
 
-            print("Testing Accuracy, logits:", session.run([model.accuracy, model.logits] , feed_dict))
+            print("Testing Output data, cost, accuracy, logits:", output_valid, session.run([model.cost, model.accuracy, model.logits] , feed_dict))
 
 
 
@@ -230,10 +230,10 @@ class Config(object):
     keep_prob = 0.7
     num_layers = 2
     hidden_size = 8
-    batch_size = 2
+    batch_size = 1
     # num_steps - number of days provided to network in one batch
-    num_days = 10
-    max_max_epoch = 800
+    num_days = 7
+    max_max_epoch = 300
     lr_decay = 0.9
     initial_learning_epoch = 100
     learning_rate = 1.0
