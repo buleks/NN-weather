@@ -7,6 +7,7 @@ import datetime
 flags = tf.flags
 
 flags.DEFINE_string("save_path", None,"Model output directory.")
+flags.DEFINE_string("state_path", None,"Model state directory.")
 
 FLAGS = flags.FLAGS
 
@@ -90,7 +91,8 @@ class WeatherModel(object):
         tvars = tf.trainable_variables()
 
         grads, _ = tf.clip_by_global_norm(tf.gradients(cost, tvars),100)
-        optimizer = tf.train.GradientDescentOptimizer(self._lr)
+        # optimizer = tf.train.GradientDescentOptimizer(self._lr)
+        optimizer = tf.train.AdamOptimizer(self._lr)
         self._train_optimizer = optimizer.apply_gradients(zip(grads, tvars),global_step=tf.contrib.framework.get_or_create_global_step())
         # self._train_optimizer = optimizer.minimize(cost)
 
@@ -137,48 +139,57 @@ def main(_):
 
         summary = tf.summary.merge_all()
 
-        session = tf.Session()
         saver = tf.train.Saver()
-
-        train_writer = tf.summary.FileWriter("/tmp/proj", session.graph)
+        # session = tf.Session()
 
         init = tf.global_variables_initializer();
-        session.run(init)
+
+
+
         # state = session.run(model.initial_state)
-        for i in range(config.max_max_epoch):
-            lr_decay = config.lr_decay ** max(i + 1 - config.initial_learning_epoch, 0.0)
-            model.assign_lr(session, config.learning_rate * lr_decay)
+        with tf.Session() as session:
+            if FLAGS.state_path:
+                print("Loading model from %s." % FLAGS.state_path)
+                saver.restore(session, FLAGS.state_path)
+            else:
+                session.run(init)
+            train_writer = tf.summary.FileWriter("/tmp/proj", session.graph)
 
-            fetches = {
-                "cost": model.cost,
-                "final_state": model.final_state,
-            }
+            for i in range(config.max_max_epoch):
+                lr_decay = config.lr_decay ** max(i + 1 - config.initial_learning_epoch, 0.0)
+                model.assign_lr(session, config.learning_rate * lr_decay)
 
-            fetches["eval_optimizer"] = model.train_optimizer
+                fetches = {
+                    "cost": model.cost,
+                    "final_state": model.final_state,
+                }
 
-            # input_train, output_train = r.getBatchDays(datetime.date(2015, 6, 7),config.batch_size)
-            input_train, output_train = r.getRandomTrainBatch(config.num_days,config.batch_size)
-            # output_train = np.array([[10, 20 ,30]])
-            # input_train = np.array([[1, 2, 3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24]])
-            feed_dict = {model.input_data: input_train, model.output_data: output_train}
+                fetches["eval_optimizer"] = model.train_optimizer
 
-            if i % 100 == 0:
-                fetches["summary"]=summary
+                # input_train, output_train = r.getBatchDays(datetime.date(2015, 6, 7),config.batch_size)
+                input_train, output_train = r.getRandomTrainBatch(config.num_days,config.batch_size)
+                # output_train = np.array([[10, 20 ,30]])
+                # input_train = np.array([[1, 2, 3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24]])
+                feed_dict = {model.input_data: input_train, model.output_data: output_train}
 
-            vals = session.run(fetches, feed_dict)
-            cost = vals["cost"]
-            state = vals["final_state"]
+                if i % 100 == 0:
+                    fetches["summary"]=summary
+
+                vals = session.run(fetches, feed_dict)
+                cost = vals["cost"]
+                state = vals["final_state"]
 
 
-            if i % 100 == 0:
-                train_writer.add_summary(vals["summary"],i)
-                print(cost)
+                if i % 100 == 0:
+                    train_writer.add_summary(vals["summary"],i)
+                    print(cost)
 
-        train_writer.close()
-        if FLAGS.save_path:
-            print("Saving model to %s." % FLAGS.save_path)
-            saver.save(session, FLAGS.save_path, global_step=tf.contrib.framework.get_or_create_global_step())
 
+            if FLAGS.save_path and not FLAGS.state_path:
+                print("Saving model to %s." % FLAGS.save_path)
+                saver.save(session, FLAGS.save_path)
+
+            train_writer.close()
 
 class Config(object):
     init_scale = 0.1
@@ -188,7 +199,7 @@ class Config(object):
     batch_size = 2
     # num_steps - number of days provided to network in one batch
     num_days = 7
-    max_max_epoch = 3000
+    max_max_epoch = 100
     lr_decay = 0.9
     initial_learning_epoch = 100
     learning_rate = 1.0
