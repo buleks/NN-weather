@@ -80,6 +80,7 @@ class WeatherModel(object):
 
         cost = tf.reduce_sum(tf.square(logits - output_data))
 
+        self._logits = logits
 
         self._cost = cost
         self._final_state = state
@@ -98,6 +99,9 @@ class WeatherModel(object):
 
         self._new_lr = tf.placeholder(tf.float32, shape=[], name="new_learning_rate")
         self._lr_update = tf.assign(self._lr, self._new_lr)
+
+
+        self._accuracy = tf.reduce_mean(logits - output_data)
 
     def assign_lr(self, session, lr_value):
         session.run(self._lr_update, feed_dict={self._new_lr: lr_value})
@@ -122,11 +126,20 @@ class WeatherModel(object):
     def initial_state(self):
         return self._initial_state
 
+    @property
+    def logits(self):
+        return self._logits
+
+    @property
+    def accuracy(self):
+        return self._accuracy
+
+
 def main(_):
     print("Hello")
 
-    config = Config()
 
+    config = Config()
 
 
     with tf.Graph().as_default():
@@ -142,8 +155,7 @@ def main(_):
         saver = tf.train.Saver()
         # session = tf.Session()
 
-        init = tf.global_variables_initializer();
-
+        init = tf.global_variables_initializer()
 
 
         # state = session.run(model.initial_state)
@@ -153,36 +165,39 @@ def main(_):
                 saver.restore(session, FLAGS.state_path)
             else:
                 session.run(init)
+
             train_writer = tf.summary.FileWriter("/tmp/proj", session.graph)
 
-            for i in range(config.max_max_epoch):
-                lr_decay = config.lr_decay ** max(i + 1 - config.initial_learning_epoch, 0.0)
-                model.assign_lr(session, config.learning_rate * lr_decay)
 
-                fetches = {
-                    "cost": model.cost,
-                    "final_state": model.final_state,
-                }
+            if not FLAGS.state_path:
+                for i in range(config.max_max_epoch):
+                    lr_decay = config.lr_decay ** max(i + 1 - config.initial_learning_epoch, 0.0)
+                    model.assign_lr(session, config.learning_rate * lr_decay)
 
-                fetches["eval_optimizer"] = model.train_optimizer
+                    fetches = {
+                        "cost": model.cost,
+                        "final_state": model.final_state,
+                    }
 
-                # input_train, output_train = r.getBatchDays(datetime.date(2015, 6, 7),config.batch_size)
-                input_train, output_train = r.getRandomTrainBatch(config.num_days,config.batch_size)
-                # output_train = np.array([[10, 20 ,30]])
-                # input_train = np.array([[1, 2, 3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24]])
-                feed_dict = {model.input_data: input_train, model.output_data: output_train}
+                    fetches["eval_optimizer"] = model.train_optimizer
 
-                if i % 100 == 0:
-                    fetches["summary"]=summary
+                    # input_train, output_train = r.getBatchDays(datetime.date(2015, 6, 7),config.batch_size)
+                    input_train, output_train = r.getRandomTrainBatch(config.num_days,config.batch_size)
+                    # output_train = np.array([[10, 20 ,30]])
+                    # input_train = np.array([[1, 2, 3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24]])
+                    feed_dict = {model.input_data: input_train, model.output_data: output_train}
 
-                vals = session.run(fetches, feed_dict)
-                cost = vals["cost"]
-                state = vals["final_state"]
+                    if i % 100 == 0:
+                        fetches["summary"]=summary
+
+                    vals = session.run(fetches, feed_dict)
+                    cost = vals["cost"]
+                    state = vals["final_state"]
 
 
-                if i % 100 == 0:
-                    train_writer.add_summary(vals["summary"],i)
-                    print(cost)
+                    if i % 100 == 0:
+                        train_writer.add_summary(vals["summary"],i)
+                        print(cost)
 
 
             if FLAGS.save_path and not FLAGS.state_path:
@@ -191,6 +206,25 @@ def main(_):
 
             train_writer.close()
 
+
+            print('Validation')
+            config.batch_size = 1
+            input_valid, output_valid = r.getBatchDays(datetime.date(2017, 6, 18), config.num_days, config.batch_size)
+            feed_dict = {model.input_data: input_valid, model.output_data: output_valid}
+
+
+            print("Testing Accuracy, logits:", session.run([model.accuracy, model.logits] , feed_dict))
+
+
+
+
+
+
+
+
+
+
+
 class Config(object):
     init_scale = 0.1
     keep_prob = 0.7
@@ -198,8 +232,8 @@ class Config(object):
     hidden_size = 8
     batch_size = 2
     # num_steps - number of days provided to network in one batch
-    num_days = 7
-    max_max_epoch = 100
+    num_days = 10
+    max_max_epoch = 800
     lr_decay = 0.9
     initial_learning_epoch = 100
     learning_rate = 1.0
