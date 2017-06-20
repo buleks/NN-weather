@@ -78,7 +78,7 @@ class WeatherModel(object):
         logits = tf.reshape(logits, [-1, num_steps, 3])
         logits = logits[:,2]
 
-        cost = tf.reduce_sum(tf.square(logits - output_data))
+        cost = tf.reduce_mean(tf.square(logits - output_data))
 
         self._logits = logits
 
