@@ -233,17 +233,29 @@ def main(_):
                 print(x, '\t\t|\t\t', y, '\t\t|\t\t', z)
 
 
+            print('Testing...')
+            print('Temperature prediction for today ')
+            batch_size = np.array([1], dtype=np.float32)
+            session.run(model.initial_state,{model.input_batchsize : batch_size})
+            input_test, output_test = r.getBatchDays(datetime.date.today()-datetime.timedelta(days=1), previousdays=config.num_days, batchsize=1)
+            feed_dict = {model.input_data: input_test, model.input_batchsize: batch_size}
+            test_logits = session.run(model.logits, feed_dict)
+            print('Hour | Expected temp ')
+            for x, y in zip(itertools.cycle([1,12,19]), test_logits.flatten()):
+                print(x, '\t\t|\t\t', y)
+
+
 
 
 class Config(object):
     init_scale = 0.1
-    keep_prob = 0.7
+    keep_prob = 1
     num_layers = 2
     hidden_size = 8
-    batch_size = 3
+    batch_size = 5
     # num_steps - number of days provided to network in one batch
-    num_days = 3
-    max_max_epoch = 1000
+    num_days = 5
+    max_max_epoch = 2500
     lr_decay = 0.9
     initial_learning_epoch = 100
     learning_rate = 1.0
